@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Dansk i bilen 🚗</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --border:#30363d; --text:#e6edf3;
+    --dim:#8b949e; --accent:#e63946; --accent2:#2ea043; --blue:#388bfd;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  body{background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; min-height:100vh; display:flex; flex-direction:column; user-select:none;}
+  header{padding:14px 16px 8px; text-align:center;}
+  header h1{font-size:1.15rem; font-weight:700;}
+  header .sub{color:var(--dim); font-size:.75rem; margin-top:2px;}
+  .decks{display:flex; gap:8px; padding:10px 12px; overflow-x:auto; scrollbar-width:none;}
+  .decks::-webkit-scrollbar{display:none;}
+  .chip{flex:0 0 auto; padding:10px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--dim); font-size:.85rem; font-weight:600; cursor:pointer;}
+  .chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .stage{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px 20px; text-align:center; min-height:220px;}
+  #cardDa{font-size:1.9rem; font-weight:800; line-height:1.25; word-break:break-word;}
+  #cardChain{font-size:1.15rem; color:var(--blue); margin-top:8px; font-weight:600;}
+  #cardEn{font-size:1.1rem; color:var(--dim); margin-top:10px;}
+  #cardEx{font-size:1rem; color:var(--text); margin-top:14px; font-style:italic; opacity:.9; line-height:1.4;}
+  #phase{margin-top:16px; font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; color:var(--dim); height:1em;}
+  .progress{width:100%; padding:0 20px; display:flex; justify-content:space-between; color:var(--dim); font-size:.75rem;}
+  .controls{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; padding:14px 16px 8px;}
+  button.big{border:none; border-radius:16px; padding:20px 8px; font-size:1rem; font-weight:700; color:#fff; cursor:pointer;}
+  #btnHard{background:#6e2a31;}
+  #btnPlay{background:var(--accent2); font-size:1.25rem;}
+  #btnPlay.playing{background:#d29922;}
+  #btnNext{background:#1f4b8e;}
+  .settings{padding:8px 16px 24px; border-top:1px solid var(--border); margin-top:6px;}
+  .settings summary{color:var(--dim); font-size:.85rem; padding:8px 0; cursor:pointer; list-style:none;}
+  .srow{display:flex; align-items:center; justify-content:space-between; padding:9px 0; font-size:.9rem; gap:10px;}
+  .srow input[type=range]{width:50%;}
+  .srow select{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px;}
+  .toggle{width:52px; height:30px; border-radius:15px; background:var(--border); position:relative; cursor:pointer; transition:.2s;}
+  .toggle.on{background:var(--accent2);}
+  .toggle::after{content:""; position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; transition:.2s;}
+  .toggle.on::after{left:25px;}
+  .note{font-size:.72rem; color:var(--dim); line-height:1.45; margin-top:10px;}
+  #stats{font-size:.78rem; color:var(--dim); text-align:center; padding-bottom:4px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🇩🇰 Dansk i bilen</h1>
+  <div class="sub">Hands-free trainer · PD3 · Murat</div>
+</header>
+
+<div class="decks" id="deckBar"></div>
+
+<div class="stage">
+  <div id="cardDa">Tryk på START</div>
+  <div id="cardChain"></div>
+  <div id="cardEn">Choose a deck, press start, and just listen &amp; repeat aloud.</div>
+  <div id="cardEx"></div>
+  <div id="phase"></div>
+</div>
+
+<div class="progress"><span id="pos"></span><span id="deckName"></span></div>
+<div id="stats"></div>
+
+<div class="controls">
+  <button class="big" id="btnHard">😅 Svær</button>
+  <button class="big" id="btnPlay">▶ START</button>
+  <button class="big" id="btnNext">⏭ Næste</button>
+</div>
+
+<details class="settings">
+  <summary>⚙️ Indstillinger (settings)</summary>
+  <div class="srow"><span>Danish speed</span><input type="range" id="rate" min="0.55" max="1.1" step="0.05" value="0.85"></div>
+  <div class="srow"><span>Repeat-pause (sec)</span><input type="range" id="pause" min="1" max="6" step="0.5" value="3"></div>
+  <div class="srow"><span>Say Danish twice</span><div class="toggle on" id="twice"></div></div>
+  <div class="srow"><span>English meaning</span><div class="toggle on" id="sayEn"></div></div>
+  <div class="srow"><span>🌐 Google voice (online)</span><div class="toggle" id="gvoice"></div></div>
+  <div class="srow"><span>Device Danish voice</span><select id="voiceSel"></select></div>
+  <div class="srow"><span>Reset "svær" progress</span><button style="background:var(--card);color:var(--dim);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer" id="resetBtn">Reset</button></div>
+  <div class="note">🚗 Safety: start playback before you drive. Cards marked "Svær" come back ~3× more often. Progress is saved on this phone. 🌐 Google voice streams the Google-Translate pronunciation — needs internet, works even when the device has no Danish voice (it turns on automatically in that case). For offline use, install a device voice: iPhone → Settings → Accessibility → Spoken Content → Voices → Danish (Sara, Enhanced); Android → Google TTS is built in. Keep the screen on (the app requests wake-lock automatically).</div>
+</details>
+
+<script>
+"use strict";
+/* ================= DECK DATA ================= */
+/* Card: [danish, english, example, chain?]  Lesson: {t:title, s:[[lang,text],...]} */
+
+const VERBS = [
+ ["at være","to be","Jeg har været i Danmark i mange år.","er – var – har været"],
+ ["at have","to have","Hun har haft travlt hele ugen.","har – havde – har haft"],
+ ["at få","to get / receive","Jeg fik et brev fra kommunen i går.","får – fik – har fået"],
+ ["at gå","to go / walk","Vi gik en lang tur langs vandet.","går – gik – er gået"],
+ ["at komme","to come","Han kom for sent til mødet.","kommer – kom – er kommet"],
+ ["at tage","to take","Jeg tager toget til arbejde hver dag.","tager – tog – har taget"],
+ ["at se","to see / watch","Har du set den nye danske film?","ser – så – har set"],
+ ["at sige","to say","Hvad sagde du til din chef?","siger – sagde – har sagt"],
+ ["at gøre","to do","Det har jeg aldrig gjort før.","gør – gjorde – har gjort"],
+ ["at blive","to become / stay","Han blev meget glad for gaven.","bliver – blev – er blevet"],
+ ["at give","to give","Hun gav mig et godt råd.","giver – gav – har givet"],
+ ["at stå","to stand","Bussen stod stille i en halv time.","står – stod – har stået"],
+ ["at kunne","to be able to","Jeg har ikke kunnet sove i nat.","kan – kunne – har kunnet"],
+ ["at skulle","to have to","Vi skulle have været der klokken ni.","skal – skulle – har skullet"],
+ ["at ville","to want to","Hun har altid villet bo i Danmark.","vil – ville – har villet"],
+ ["at måtte","to be allowed to / must","Man måtte ikke ryge på restauranten.","må – måtte – har måttet"],
+ ["at burde","ought to","Du burde tale mere dansk derhjemme.","bør – burde – har burdet"],
+ ["at turde","to dare","Jeg turde ikke sige noget på mødet.","tør – turde – har turdet"],
+ ["at vide","to know (a fact)","Jeg vidste ikke, at prøven var i november.","ved – vidste – har vidst"],
+ ["at finde","to find","Har du fundet en god læge?","finder – fandt – har fundet"],
+ ["at holde","to hold / keep","Vi holdt ferie på Fyn i sommer.","holder – holdt – har holdt"],
+ ["at hjælpe","to help","Min nabo hjalp mig med at flytte.","hjælper – hjalp – har hjulpet"],
+ ["at drikke","to drink","Han drak tre kopper kaffe i morges.","drikker – drak – har drukket"],
+ ["at falde","to fall","Priserne er faldet i år.","falder – faldt – er faldet"],
+ ["at ligge","to lie / be located","Skolen ligger tæt på stationen.","ligger – lå – har ligget"],
+ ["at sidde","to sit","Vi sad og talte hele aftenen.","sidder – sad – har siddet"],
+ ["at lægge","to lay / put","Jeg lagde nøglerne på bordet.","lægger – lagde – har lagt"],
+ ["at sætte","to set / put","Hun satte sig ved siden af mig.","sætter – satte – har sat"],
+ ["at sove","to sleep","Barnet sov hele natten.","sover – sov – har sovet"],
+ ["at bede","to ask / pray","Jeg bad ham om at ringe tilbage.","beder – bad – har bedt"],
+ ["at trække","to pull / draw","Han trak vejret dybt før prøven.","trækker – trak – har trukket"],
+ ["at vælge","to choose","Vi valgte den billigste løsning.","vælger – valgte – har valgt"],
+ ["at følge","to follow","Jeg fulgte lærerens råd.","følger – fulgte – har fulgt"],
+ ["at spørge","to ask (a question)","Hun spurgte om vej til rådhuset.","spørger – spurgte – har spurgt"],
+ ["at løbe","to run","Jeg løb en tur i parken i morges.","løber – løb – har løbet"],
+ ["at skrive","to write","Har du skrevet din ansøgning færdig?","skriver – skrev – har skrevet"],
+ ["at synge","to sing","Børnene sang danske sange i skolen.","synger – sang – har sunget"],
+ ["at vinde","to win","Holdet vandt kampen i søndags.","vinder – vandt – har vundet"],
+ ["at binde","to bind / tie","Aftalen er bindende for begge parter.","binder – bandt – har bundet"],
+ ["at springe","to jump","Han sprang over det svære spørgsmål.","springer – sprang – har sprunget"],
+ ["at tvinge","to force","Ingen kan tvinge dig til at svare.","tvinger – tvang – har tvunget"],
+ ["at bære","to carry / wear","Hun bar en tung taske hele vejen.","bærer – bar – har båret"],
+ ["at stjæle","to steal","Nogen stjal min cykel i nat.","stjæler – stjal – har stjålet"],
+ ["at hænge","to hang","Billedet hang skævt på væggen.","hænger – hang – har hængt"],
+ ["at sælge","to sell","De solgte deres hus sidste år.","sælger – solgte – har solgt"],
+ ["at række","to reach / pass","Kan du række mig saltet?","rækker – rakte – har rakt"],
+ ["at vække","to wake (someone)","Larmen vakte hele familien.","vækker – vakte – har vakt"],
+ ["at bringe","to bring","Kurset bragte mig videre med sproget.","bringer – bragte – har bragt"],
+ ["at træde","to step","Loven trådte i kraft i januar.","træder – trådte – har trådt"],
+ ["at gide","to bother / feel like","Jeg gad ikke lave mad i går.","gider – gad – har gidet"],
+ ["at flyve","to fly","Vi fløj til Spanien i efterårsferien.","flyver – fløj – er fløjet"],
+ ["at lyve","to lie (not tell truth)","Han løj om sin alder.","lyver – løj – har løjet"],
+ ["at lyde","to sound","Det lyder som en god idé.","lyder – lød – har lydt"],
+ ["at nyde","to enjoy","Vi nød det gode vejr i weekenden.","nyder – nød – har nydt"],
+ ["at bryde","to break","Hun brød sig ikke om maden.","bryder – brød – har brudt"],
+ ["at fryse","to freeze","Jeg frøs hele vinteren i lejligheden.","fryser – frøs – har frosset"],
+ ["at stige","to rise / increase","Huslejen er steget meget i København.","stiger – steg – er steget"],
+ ["at ryge","to smoke","Han røg tidligere, men er stoppet.","ryger – røg – har røget"],
+ ["at dø","to die","Digteren døde i 1875.","dør – døde – er død"],
+ ["at tælle","to count","Den mundtlige prøve tæller dobbelt.","tæller – talte – har talt"],
+];
+
+const PREPS = [
+ ["at tænke på","to think about","Jeg tænker tit på min familie."],
+ ["at vente på","to wait for","Vi ventede på bussen i tyve minutter."],
+ ["at tro på","to believe in","Du skal tro på dig selv til prøven."],
+ ["at håbe på","to hope for","Vi håber på godt vejr på lørdag."],
+ ["at glæde sig til","to look forward to","Jeg glæder mig til at se dig."],
+ ["at glæde sig over","to be happy about","Hun glæder sig over sit nye job."],
+ ["at glæde sig på ens vegne","to be happy for someone","Jeg glæder mig på dine vegne."],
+ ["at tale om","to talk about","Vi talte om madspild i timen."],
+ ["at synes om","to like","Jeg synes godt om min nye lærer."],
+ ["ikke at bryde sig om","to dislike","Han bryder sig ikke om kold kaffe."],
+ ["at være bange for","to be afraid of","Du skal ikke være bange for at cykle."],
+ ["at interessere sig for","to be interested in","Hun interesserer sig for politik."],
+ ["at sætte pris på","to appreciate","Jeg sætter pris på din hjælp."],
+ ["at være irriteret over","to be annoyed at (something)","Jeg er irriteret over trafikken."],
+ ["glad for","happy about / fond of","Jeg er glad for, at du er kommet."],
+ ["stolt af","proud of","Jeg er stolt af, at jeg har lært dansk."],
+ ["ked af","sad / sorry about","Hun var ked af at aflyse mødet."],
+ ["træt af","tired of","Jeg er træt af det grå vejr."],
+ ["sur på nogen","cross with someone","Er du sur på mig?"],
+ ["sur over noget","annoyed about something","Han er sur over forsinkelsen."],
+ ["vred på nogen","angry with someone","Hun blev vred på sin kollega."],
+ ["vred over noget","angry about something","Vi er vrede over beslutningen."],
+ ["tilfreds med","satisfied with","Var du tilfreds med maden på restauranten?"],
+ ["interesseret i","interested in","Er du interesseret i at fortsætte?"],
+ ["enig i noget","agree with something","Jeg er enig i dit forslag."],
+ ["enige om noget","agree about something (together)","Vi er enige om planen."],
+ ["sikker på","certain about","Jeg er usikker på, om han kommer."],
+ ["åben over for","open to","Jeg er åben over for nye muligheder."],
+ ["tryg ved","comfortable with","Hun føler sig tryg ved sin læge."],
+ ["skeptisk over for","skeptical of","Mange er skeptiske over for planen."],
+ ["forelsket i","in love with","Han er forelsket i sin nabo."],
+ ["god til at","good at (doing)","Du er god til at udtale dansk."],
+ ["i mandags","last Monday","Han ringede til mig i mandags."],
+ ["på mandag","on Monday (coming)","Vi ses på mandag."],
+ ["om mandagen","on Mondays (habit)","Om mandagen går jeg i aftenskole."],
+ ["om tre uger","in three weeks","Min mor kommer på besøg om tre uger."],
+ ["for fem år siden","five years ago","Jeg var i Paris for fem år siden."],
+ ["i tre år","for three years","Jeg har boet i Danmark i tre år."],
+ ["i timen","in class (during the lesson)","Vi talte dansk i timen i dag."],
+ ["til sommer","this coming summer","Vi skal til Italien til sommer."],
+ ["i København, på Østerbro","in Copenhagen, in Østerbro district","Museet ligger på Østerbro i København."],
+ ["på Fyn, i Jylland","on Funen, in Jutland","H.C. Andersen er født på Fyn."],
+ ["på universitetet, på café","at university, at a café","Han går på universitetet og læser jura."],
+ ["i skole, i børnehave","to school, to kindergarten","Børnene går i børnehave hver dag."],
+ ["hos","at someone's place","Hun bor hos en dansk familie."],
+ ["at stå af bussen","to get off the bus","Jeg står af bussen på Rådhuspladsen."],
+ ["ned ad vejen","down the road","Vi gik ned ad vejen til stationen."],
+ ["i forbindelse med","in connection with","Problemet opstod i forbindelse med flytningen."],
+ ["i lyset af","in light of","I lyset af de nye regler ændrede vi planen."],
+ ["til trods for, at","despite the fact that","Til trods for, at han var syg, kom han i skole."],
+ ["i anledning af","on the occasion of","Festen blev holdt i anledning af jubilæet."],
+ ["i forlængelse af","following / in continuation of","I forlængelse af mødet sender vi et forslag."],
+];
+
+const VOCAB = [
+ ["skærmtid","screen time","Mange forældre bekymrer sig om børns skærmtid."],
+ ["afhængighed","addiction / dependence","Afhængighed af mobilen er et voksende problem."],
+ ["at slå fra","to switch off / disconnect","Det er svært at slå notifikationerne fra."],
+ ["sociale medier","social media","Sociale medier påvirker unges selvværd."],
+ ["kunstig intelligens","artificial intelligence","Kunstig intelligens forandrer arbejdsmarkedet."],
+ ["en udfordring","a challenge","Sproget er stadig en udfordring for mig."],
+ ["arbejdsmarkedet","the labour market","Det danske arbejdsmarked er meget fleksibelt."],
+ ["en ansøgning","an application","Jeg har sendt en ansøgning til virksomheden."],
+ ["et krav","a requirement / demand","Der er høje krav til dokumentation."],
+ ["en kollega","a colleague","Mine kolleger hjælper mig med mit dansk."],
+ ["arbejdsmiljø","working environment","Et godt arbejdsmiljø er vigtigt for trivslen."],
+ ["balance mellem arbejde og fritid","work–life balance","Danskerne går op i balancen mellem arbejde og fritid."],
+ ["en efteruddannelse","further education / training","Han tager en efteruddannelse ved siden af jobbet."],
+ ["at trives","to thrive / feel well","Jeg trives godt på min arbejdsplads."],
+ ["sundhedsvæsenet","the healthcare system","Sundhedsvæsenet er gratis for alle borgere."],
+ ["en livsstil","a lifestyle","En sund livsstil kræver motion og god søvn."],
+ ["motion","exercise","Jeg dyrker motion tre gange om ugen."],
+ ["kost","diet (food habits)","En varieret kost er vigtig for helbredet."],
+ ["stress","stress","Mange danskere oplever stress på arbejdet."],
+ ["trivsel","wellbeing","Skolen har fokus på elevernes trivsel."],
+ ["forebyggelse","prevention","Forebyggelse er billigere end behandling."],
+ ["miljøet","the environment","Vi skal alle passe bedre på miljøet."],
+ ["klimaforandringer","climate change","Klimaforandringerne påvirker hele verden."],
+ ["bæredygtig","sustainable","Flere vælger en bæredygtig livsstil."],
+ ["madspild","food waste","Vi kan nemt begrænse madspild derhjemme."],
+ ["genbrug","recycling / reuse","Genbrug er blevet meget populært i Danmark."],
+ ["grøn omstilling","green transition","Den grønne omstilling skaber nye job."],
+ ["en elbil","an electric car","Jeg kører i elbil til arbejde hver dag."],
+ ["udledning","emission","Danmark vil sænke sin udledning af CO2."],
+ ["samfundet","society","Alle borgere bidrager til samfundet."],
+ ["velfærdsstaten","the welfare state","Velfærdsstaten bygger på høje skatter."],
+ ["en borger","a citizen","Som borger har man rettigheder og pligter."],
+ ["integration","integration","Sprog er nøglen til god integration."],
+ ["medborgerskab","citizenship (participation)","Aktivt medborgerskab styrker demokratiet."],
+ ["ligestilling","equality (gender)","Danmark er kendt for ligestilling mellem kønnene."],
+ ["tillid","trust","Der er høj tillid mellem borgere og myndigheder."],
+ ["foreningslivet","club/association life","Foreningslivet er en stor del af dansk kultur."],
+ ["frivilligt arbejde","volunteer work","Frivilligt arbejde er en god måde at møde danskere på."],
+ ["en uddannelse","an education","Hun tager en uddannelse som sygeplejerske."],
+ ["folkeskolen","the Danish public school","Børnene går i folkeskolen i ni år."],
+ ["livslang læring","lifelong learning","Livslang læring er nødvendig i en moderne verden."],
+ ["en prøve","an exam / test","Jeg skal til prøve i november."],
+ ["at bestå","to pass (an exam)","Jeg er sikker på, at du består prøven."],
+ ["at dumpe","to fail (an exam)","Ingen har lyst til at dumpe."],
+ ["børnepasning","childcare","Børnepasning er dyr, men velorganiseret."],
+ ["opdragelse","upbringing","Dansk opdragelse bygger meget på selvstændighed."],
+ ["en generation","a generation","Den unge generation tænker anderledes om arbejde."],
+ ["fritidsinteresser","leisure interests","Mine fritidsinteresser er løb og madlavning."],
+ ["boligmarkedet","the housing market","Boligmarkedet i København er meget dyrt."],
+ ["en andelsbolig","a co-op apartment","Vi overvejer at købe en andelsbolig."],
+ ["huslejen","the rent","Huslejen stiger hvert år."],
+ ["transport","transport","Offentlig transport fungerer godt i byerne."],
+ ["myldretid","rush hour","Jeg sidder i bilen i myldretiden hver morgen."],
+ ["en holdning","an opinion / attitude","Hvad er din holdning til skærmtid?"],
+ ["en fordel","an advantage","En stor fordel ved elbiler er de lave udgifter."],
+ ["en ulempe","a disadvantage","En ulempe er, at opladning tager tid."],
+ ["på den ene side, på den anden side","on the one hand, on the other hand","På den ene side sparer det tid, på den anden side koster det mere."],
+ ["efter min mening","in my opinion","Efter min mening bør alle lære et fremmedsprog."],
+ ["at begrunde","to justify / give reasons","Du skal begrunde din holdning til prøven."],
+ ["desuden","furthermore","Desuden er der mange kulturelle fordele."],
+];
+
+const LESSONS = [
+ {t:"Ordstilling 1: inversion", s:[
+  ["en","Lesson one. Word order and inversion. The most important rule in Danish: the verb is always the second element in a main clause. If you start with anything other than the subject, the subject and verb swap places. Listen and repeat."],
+  ["da","Jeg går i skole i morgen."],
+  ["en","Now we start with the time expression, so verb comes before subject:"],
+  ["da","I morgen går jeg i skole."],
+  ["en","Again: On Friday we are having a party."],
+  ["da","På fredag holder vi fest."],
+  ["en","In light of the situation, we changed the plan."],
+  ["da","I lyset af situationen ændrede vi planen."],
+  ["en","Your turn in your head: start every sentence today with a time expression, and put the verb right after it. This single habit removes one of the most common PD3 errors."],
+  ["da","Om mandagen taler jeg kun dansk i bilen."],
+ ]},
+ {t:"Ordstilling 2: ledsætninger og ikke", s:[
+  ["en","Lesson two. Subordinate clauses. After words like at, fordi, hvis, når, som, om — the word order changes: subject first, then adverbs like ikke, then the verb. Main clause:"],
+  ["da","Han kommer ikke i dag."],
+  ["en","Subordinate clause — ikke moves before the verb:"],
+  ["da","Jeg ved, at han ikke kommer i dag."],
+  ["en","Because she doesn't have time:"],
+  ["da","Hun bliver hjemme, fordi hun ikke har tid."],
+  ["en","If you cannot come, you must call:"],
+  ["da","Hvis du ikke kan komme, skal du ringe."],
+  ["en","Remember the test: find the little word — at, fordi, hvis, når — then say subject, ikke, verb."],
+  ["da","Jeg tror, at det ikke bliver et problem."],
+ ]},
+ {t:"Nutid: husk -r", s:[
+  ["en","Lesson three. Present tense. Your known pattern: the missing R. Every Danish present tense verb ends in R. No exceptions for regular verbs. Not 'jeg arbejde' — but:"],
+  ["da","Jeg arbejder i København."],
+  ["en","Not 'hun bo' — but:"],
+  ["da","Hun bor på Østerbro."],
+  ["en","Even after 'at': the infinitive has no R, the present tense always does. Compare:"],
+  ["da","Jeg kan godt lide at læse. Jeg læser hver aften."],
+  ["en","One more pair. To drive — I drive:"],
+  ["da","Jeg elsker at køre bil. Jeg kører fyrre minutter hver dag."],
+  ["en","When you speak today, exaggerate the R at the end of every present verb. Arbejder. Bor. Læser. Kører."],
+ ]},
+ {t:"Adjektiver og adverbier: -t", s:[
+  ["en","Lesson four. The T ending — your second known pattern. Adverbs that describe HOW something happens take T. He speaks slowly:"],
+  ["da","Han taler langsomt."],
+  ["en","She sings beautifully:"],
+  ["da","Hun synger smukt."],
+  ["en","Also after 'et' words: a good house becomes:"],
+  ["da","et godt hus"],
+  ["en","And in these very common exam phrases:"],
+  ["da","Det er virkelig svært. Jeg taler dansk flydende, men skriver stadig langsomt."],
+  ["en","Rule of thumb: if the word answers the question HOW, it almost always needs T."],
+  ["da","Hun arbejder hurtigt og effektivt."],
+ ]},
+ {t:"Passiv", s:[
+  ["en","Lesson five. The passive. Danish has two passives. First: the S passive, common in writing and formal contexts. The letter is sent:"],
+  ["da","Brevet sendes i dag."],
+  ["en","Danish is spoken in Denmark:"],
+  ["da","Der tales dansk i Danmark."],
+  ["en","Second: blive plus participle, common in speech. The house was sold:"],
+  ["da","Huset blev solgt sidste år."],
+  ["en","The exam is held in November:"],
+  ["da","Prøven bliver afholdt i november."],
+  ["en","With modal verbs, use the S form. The application must be sent before midnight:"],
+  ["da","Ansøgningen skal sendes inden midnat."],
+ ]},
+ {t:"Korte svar", s:[
+  ["en","Lesson six. Short answers — very important for the oral exam, they make you sound natural. Don't repeat the whole question. Does he have a birthday? Yes, he does:"],
+  ["da","Har han fødselsdag? – Ja, det har han."],
+  ["en","Is that his wife? Yes, it is:"],
+  ["da","Er det hans kone? – Ja, det er det."],
+  ["en","Are you going out tonight? No, I'm not:"],
+  ["da","Skal du i byen i aften? – Nej, det skal jeg ikke."],
+  ["en","After a negative question, answer with JO, not JA. You're not tired, are you? Yes, I am:"],
+  ["da","Du er ikke træt, vel? – Jo, det er jeg."],
+  ["en","Practice the pattern: ja eller nej, det, verb, subject."],
+  ["da","Kan du lide København? – Ja, det kan jeg."],
+ ]},
+];
+
+const DECKS = [
+ {id:"verbs", name:"🔥 Uregelmæssige verber", cards:VERBS},
+ {id:"preps", name:"📍 Præpositioner", cards:PREPS},
+ {id:"vocab", name:"🎯 PD3-ordforråd", cards:VOCAB},
+ {id:"lessons", name:"🎧 Grammatik-lektioner", cards:LESSONS},
+];
+
+/* ================= STATE ================= */
+const LS = "dansk_bilen_v1";
+let store = {};
+try { store = JSON.parse(localStorage.getItem(LS)) || {}; } catch(e){ store = {}; }
+store.hard = store.hard || {};   // cardKey -> count
+store.seen = store.seen || 0;
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(store)); }catch(e){} }
+
+let deck = DECKS[0];
+let queue = [];
+let qi = -1;
+let playing = false;
+let runToken = 0;
+let currentKey = null;
+let daVoice = null, enVoice = null;
+
+/* ================= TTS ================= */
+const synth = window.speechSynthesis;
+function pickVoices(){
+  const vs = synth.getVoices();
+  const sel = document.getElementById("voiceSel");
+  const daAll = vs.filter(v => v.lang && v.lang.toLowerCase().startsWith("da"));
+  sel.innerHTML = "";
+  if (daAll.length === 0){
+    sel.innerHTML = "<option>⚠️ no Danish voice found</option>";
+    daVoice = null;
+  } else {
+    daAll.forEach((v,i)=>{
+      const o = document.createElement("option");
+      o.value = v.name; o.textContent = v.name;
+      sel.appendChild(o);
+    });
+    const saved = store.voice && daAll.find(v=>v.name===store.voice);
+    daVoice = saved || daAll[0];
+    sel.value = daVoice.name;
+  }
+  enVoice = vs.find(v=>v.lang==="en-US") || vs.find(v=>v.lang && v.lang.startsWith("en")) || null;
+}
+if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = pickVoices;
+pickVoices();
+
+/* --- Google Translate online voice --- */
+const gAudio = new Audio();
+function gChunks(text){
+  // Google TTS accepts ~200 chars; split at sentence/comma boundaries
+  const out = []; let rest = text.trim();
+  while (rest.length > 180){
+    let cut = -1;
+    for (const sep of [". ", "! ", "? ", "; ", ", ", " "]){
+      cut = rest.lastIndexOf(sep, 180);
+      if (cut > 40) { cut += sep.length - 1; break; }
+    }
+    if (cut <= 40) cut = 180;
+    out.push(rest.slice(0, cut).trim()); rest = rest.slice(cut).trim();
+  }
+  if (rest) out.push(rest);
+  return out;
+}
+function gPlayOne(text, tl, rate){
+  return new Promise(res=>{
+    gAudio.src = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl="
+      + tl + "&q=" + encodeURIComponent(text);
+    gAudio.playbackRate = rate;
+    const done = ()=>{ gAudio.onended=null; gAudio.onerror=null; res(); };
+    gAudio.onended = done;
+    gAudio.onerror = done;
+    gAudio.play().then(()=>{ gAudio.playbackRate = rate; }).catch(done);
+  });
+}
+async function speakGoogle(text, lang, rate){
+  const tl = lang==="da" ? "da" : "en";
+  for (const chunk of gChunks(text)){
+    await gPlayOne(chunk, tl, lang==="da" ? rate : 1.0);
+  }
+}
+function useGoogle(){
+  const t = document.getElementById("gvoice");
+  return t.classList.contains("on") || !daVoice;  // auto-fallback when no device voice
+}
+function speak(text, lang, rate){
+  if (!text) return Promise.resolve();
+  if (useGoogle()) return speakGoogle(text, lang, rate);
+  return new Promise(res=>{
+    const u = new SpeechSynthesisUtterance(text);
+    if (lang==="da"){ u.lang="da-DK"; if(daVoice) u.voice=daVoice; u.rate=rate; }
+    else { u.lang="en-US"; if(enVoice) u.voice=enVoice; u.rate=1.0; }
+    u.onend = ()=>res();
+    u.onerror = ()=>res();
+    synth.speak(u);
+  });
+}
+function wait(ms, token){
+  return new Promise(res=>{
+    const t0 = Date.now();
+    const iv = setInterval(()=>{
+      if (token !== runToken || Date.now()-t0 >= ms){ clearInterval(iv); res(); }
+    }, 100);
+  });
+}
+
+/* ================= QUEUE / SRS ================= */
+function cardKey(d, idx){ return d.id + ":" + idx; }
+function buildQueue(){
+  const n = deck.cards.length;
+  const items = [];
+  for (let i=0;i<n;i++){
+    const k = cardKey(deck,i);
+    const w = 1 + Math.min(store.hard[k]||0, 4) * 2;  // hard cards weighted up to 9x pool entries -> ~3x plays
+    items.push({i, w});
+  }
+  // weighted shuffle
+  const pool = [];
+  items.forEach(it=>{ for(let j=0;j<it.w;j++) pool.push(it.i); });
+  const seq = [];
+  const used = new Set();
+  while (used.size < n && pool.length){
+    const p = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+    if (!used.has(p)){ used.add(p); seq.push(p); }
+  }
+  // interleave extra repeats of hard cards
+  items.filter(it=>it.w>=5).forEach(it=>{
+    const pos = Math.min(seq.length, Math.floor(Math.random()*seq.length)+3);
+    seq.splice(pos,0,it.i);
+  });
+  queue = seq; qi = -1;
+}
+
+/* ================= UI ================= */
+const $ = id => document.getElementById(id);
+function setPhase(p){ $("phase").textContent = p; }
+function renderDecks(){
+  const bar = $("deckBar"); bar.innerHTML = "";
+  DECKS.forEach(d=>{
+    const c = document.createElement("div");
+    c.className = "chip" + (d.id===deck.id ? " active":"");
+    c.textContent = d.name;
+    c.onclick = ()=>{ stopPlay(); deck = d; renderDecks(); buildQueue(); showIdle(); };
+    bar.appendChild(c);
+  });
+  $("deckName").textContent = deck.name;
+}
+function showIdle(){
+  $("cardDa").textContent = "Tryk på START";
+  $("cardChain").textContent = "";
+  $("cardEn").textContent = deck.id==="lessons" ? "Audio grammar lessons — just listen." : "Listen → repeat aloud → meaning → example.";
+  $("cardEx").textContent = ""; setPhase(""); updatePos();
+}
+function updatePos(){
+  $("pos").textContent = qi>=0 ? `${qi+1} / ${queue.length}` : `${queue.length} cards`;
+  const hc = Object.keys(store.hard).filter(k=>k.startsWith(deck.id+":") && store.hard[k]>0).length;
+  $("stats").textContent = `Total heard: ${store.seen} · marked svær in this deck: ${hc}`;
+}
+function showCard(c, isLesson){
+  if (isLesson){
+    $("cardDa").textContent = c.t;
+    $("cardChain").textContent = "";
+    $("cardEn").textContent = "🎧 lesson " + (qi+1);
+    $("cardEx").textContent = "";
+  } else {
+    $("cardDa").textContent = c[0];
+    $("cardChain").textContent = c[3] || "";
+    $("cardEn").textContent = c[1];
+    $("cardEx").textContent = c[2] ? "„" + c[2] + "“" : "";
+  }
+  updatePos();
+}
+
+/* ================= PLAYER ================= */
+async function playCard(token){
+  if (token !== runToken) return;
+  qi++;
+  if (qi >= queue.length){ buildQueue(); qi = 0; }
+  const idx = queue[qi];
+  const c = deck.cards[idx];
+  currentKey = cardKey(deck, idx);
+  const rate = parseFloat($("rate").value);
+  const pauseMs = parseFloat($("pause").value)*1000;
+  const twice = $("twice").classList.contains("on");
+  const sayEn = $("sayEn").classList.contains("on");
+  const isLesson = deck.id==="lessons";
+  showCard(c, isLesson);
+  store.seen++; save();
+
+  if (isLesson){
+    setPhase("lektion");
+    for (const seg of c.s){
+      if (token !== runToken) return;
+      await speak(seg[1], seg[0], seg[0]==="da" ? rate : 1.0);
+      if (seg[0]==="da"){ setPhase("gentag! (repeat)"); await wait(pauseMs, token); setPhase("lektion"); }
+    }
+    await wait(1200, token);
+  } else {
+    setPhase("lyt (listen)");
+    await speak(c[0], "da", rate); if (token!==runToken) return;
+    if (c[3]){ await speak(c[3].replace(/–/g, ","), "da", rate); if (token!==runToken) return; }
+    setPhase("gentag! (repeat)");
+    await wait(pauseMs, token); if (token!==runToken) return;
+    if (twice){
+      setPhase("igen (again)");
+      await speak(c[0], "da", rate); if (token!==runToken) return;
+      await wait(Math.min(pauseMs,2000), token); if (token!==runToken) return;
+    }
+    if (sayEn){ setPhase("betydning"); await speak(c[1], "en", 1.0); if (token!==runToken) return; }
+    if (c[2]){
+      setPhase("eksempel");
+      await speak(c[2], "da", rate); if (token!==runToken) return;
+      setPhase("gentag eksemplet");
+      await wait(pauseMs+800, token); if (token!==runToken) return;
+    }
+  }
+  if (token === runToken && playing) playCard(token);
+}
+
+function startPlay(){
+  if (queue.length===0) buildQueue();
+  playing = true; runToken++;
+  $("btnPlay").textContent = "⏸ PAUSE";
+  $("btnPlay").classList.add("playing");
+  requestWakeLock();
+  synth.cancel();
+  playCard(runToken);
+}
+function stopPlay(){
+  playing = false; runToken++;
+  synth.cancel();
+  gAudio.pause(); gAudio.onended = null; gAudio.onerror = null;
+  $("btnPlay").textContent = "▶ START";
+  $("btnPlay").classList.remove("playing");
+  setPhase("pause");
+}
+$("btnPlay").onclick = ()=> playing ? stopPlay() : startPlay();
+$("btnNext").onclick = ()=>{ if (!playing){ startPlay(); return; } runToken++; synth.cancel(); gAudio.pause(); playing = true; playCard(runToken); };
+$("btnHard").onclick = ()=>{
+  if (!currentKey) return;
+  store.hard[currentKey] = (store.hard[currentKey]||0)+1; save();
+  $("btnHard").textContent = "✔ noteret";
+  setTimeout(()=>$("btnHard").textContent="😅 Svær", 900);
+  updatePos();
+};
+$("resetBtn").onclick = ()=>{ store.hard={}; save(); updatePos(); };
+document.querySelectorAll(".toggle").forEach(t=> t.onclick = ()=> t.classList.toggle("on"));
+$("voiceSel").onchange = e=>{
+  const vs = synth.getVoices();
+  daVoice = vs.find(v=>v.name===e.target.value) || daVoice;
+  store.voice = e.target.value; save();
+};
+
+/* wake lock */
+let wl = null;
+async function requestWakeLock(){
+  try{ if ("wakeLock" in navigator) wl = await navigator.wakeLock.request("screen"); }catch(e){}
+}
+document.addEventListener("visibilitychange", ()=>{ if (document.visibilityState==="visible" && playing) requestWakeLock(); });
+
+renderDecks(); buildQueue(); showIdle();
+</script>
+</body>
+</html>
